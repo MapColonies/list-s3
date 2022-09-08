@@ -1,13 +1,13 @@
 import jsLogger from '@map-colonies/js-logger';
 import { trace } from '@opentelemetry/api';
 import httpStatusCodes from 'http-status-codes';
+
 import { getApp } from '../../../src/app';
 import { SERVICES } from '../../../src/common/constants';
-import { IAnotherResourceModel } from '../../../src/anotherResource/models/anotherResourceManager';
-import { AnotherResourceRequestSender } from './helpers/requestSender';
+import { ListS3RequestSender } from './helpers/requestSender';
 
-describe('resourceName', function () {
-  let requestSender: AnotherResourceRequestSender;
+describe('listS3', function () {
+  let requestSender: ListS3RequestSender;
   beforeEach(function () {
     const app = getApp({
       override: [
@@ -16,7 +16,7 @@ describe('resourceName', function () {
       ],
       useChild: true,
     });
-    requestSender = new AnotherResourceRequestSender(app);
+    requestSender = new ListS3RequestSender(app);
   });
 
   describe('Happy Path', function () {
@@ -24,11 +24,11 @@ describe('resourceName', function () {
       const response = await requestSender.getResource();
 
       expect(response.status).toBe(httpStatusCodes.OK);
-      expect(response).toSatisfyApiSpec();
+    });
+    it('should return 200 status code and create the resource', async function () {
+      const response = await requestSender.createList();
 
-      const resource = response.body as IAnotherResourceModel;
-      expect(resource.kind).toBe('avi');
-      expect(resource.isAlive).toBe(false);
+      expect(response.status).toBe(httpStatusCodes.CREATED);
     });
   });
   describe('Bad Path', function () {
