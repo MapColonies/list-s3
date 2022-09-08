@@ -22,27 +22,29 @@ export class ListS3Manager {
     maxAttempts: 3,
   });
 
-  private readonly boss = new PgBoss(this.config.get<string>('postgres'));
+  private readonly pgBoss = new PgBoss(this.config.get<string>('pgboss'));
 
   public constructor(@inject(SERVICES.LOGGER) private readonly logger: Logger, @inject(SERVICES.CONFIG) private readonly config: IConfig) {
-    this.boss.on('error', (error) => console.error(error));
+    this.pgBoss.on('error', (error) => console.error(error));
   }
 
   public async createListManager(model: string): Promise<string> {
     try {
+
+      const response = axios.get(this.config.get<string>('getS3') + model).catch();
+
       this.logger.info({
-        msg: 'Listing the model in the bucket and put them in pg-boss',
+        msg: 'Listing the model in the bucket and put them in pgboss',
         model: model,
         bucket: this.config.get<string>('s3.bucket'),
-        pgDataBase: this.config.get<string>('postgres'),
+        pgboss: this.config.get<string>('pgboss'),
       });
 
-      const response = axios.get(this.config.get<string>('getS3') + model);
-      await this.boss.start();
+      await this.pgBoss.start();
       let numOfFiles = 0;
 
       if (this.config.get<string>('source') == 'S3') {
-        numOfFiles = await listS3ModelInPG(this.s3Client, this.boss, model);
+        numOfFiles = await listS3ModelInPG(this.s3Client, this.pgBoss, model);
       } else if (this.config.get<string>('source') == 'NFS') {
         // files = listAllModelNFS(path);
         console.log('NFS');
@@ -52,16 +54,18 @@ export class ListS3Manager {
       }
 
       this.logger.info({
-        msg: 'Successfully wrote the files in pg-boss ',
+        msg: 'Successfully wrote the files in pgboss ',
         model: model,
         bucket: this.config.get<string>('s3.bucket'),
+        pgboss: this.config.get<string>('pgboss'),
         numOfFiles: numOfFiles,
       });
 
       return (await response).data as string;
+
     } catch (e) {
       // eslint-disable-next-line @typescript-eslint/no-magic-numbers
-      await addSizeToQueue(this.boss, model, -1);
+      await addSizeToQueue(this.pgBoss, model, -1);
       this.logger.error({ msg: 'Failed to write the files from S3', e });
       throw e;
     }

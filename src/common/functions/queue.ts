@@ -1,14 +1,13 @@
 import PgBoss, { SendOptions } from 'pg-boss';
 
-async function addToQueue(boss: PgBoss, model: string, key: string): Promise<void> {
+async function addKeyToQueue(boss: PgBoss, model: string, key: string): Promise<void> {
   const options: SendOptions = {
     retentionHours: 10,
   };
+
   const jobId = await boss.send(model, { key }, options);
 
   console.log(`created job in queue ${model}: ${jobId != undefined ? jobId : ''} Key: ${key}`);
-
-  // await boss.work(queue, someAsyncJobHandler);
 }
 
 async function addSizeToQueue(boss: PgBoss, model: string, size: number): Promise<void> {
@@ -18,16 +17,7 @@ async function addSizeToQueue(boss: PgBoss, model: string, size: number): Promis
 
   const jobId = await boss.send(`${model}-size`, { size }, options);
 
-  console.log(`created job in queue ${model}: ${jobId != undefined ? jobId : ''}`);
-
-  // await boss.work(queue, someAsyncJobHandler);
+  console.log(`created size in queue ${model}: ${jobId != undefined ? jobId : ''}`);
 }
 
-// async function someAsyncJobHandler(job): Promise<void> {
-//   console.log(`job ${job.id} received with data:`);
-//   console.log(JSON.stringify(job.data));
-
-//   await doSomethingAsyncWithThis(job.data);
-// }
-
-export { addToQueue, addSizeToQueue };
+export { addKeyToQueue, addSizeToQueue };

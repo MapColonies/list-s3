@@ -34,7 +34,6 @@
   },
   "3dir": "../3D-Models",
   "source": "S3",
-  "buffer": 20,
-  "postgres": "postgres://postgres:postgres@127.0.0.1/s3-key",
+  "pgboss": "postgres://postgres:postgres@127.0.0.1/s3-key",
   "getS3": "http://tlv-p-netanel-lnx:8080/getS3/"
 }
