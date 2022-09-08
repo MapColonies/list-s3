@@ -1,7 +1,9 @@
 import { ListObjectsCommand, ListObjectsRequest, S3Client } from '@aws-sdk/client-s3';
 import config from 'config';
 import { StatusCodes } from 'http-status-codes';
+import PgBoss from 'pg-boss';
 import { PathNotExists } from '../errors';
+import { addSizeToQueue, addToQueue } from './queue';
 // import { addToQueue } from './queue';
 
 async function list1LevelS3(s3Client: S3Client, path: string): Promise<string[]> {
@@ -43,7 +45,7 @@ async function getOneLevelS3(s3Client: S3Client, params: ListObjectsRequest, arr
   return arrayOfList;
 }
 
-async function listAllModelS3(s3Client: S3Client, model: string): Promise<string[]> {
+async function listS3ModelInPG(s3Client: S3Client, boss: PgBoss, model: string): Promise<number> {
   const modelWithSlash = model + '/';
   let count = 0;
 
@@ -55,27 +57,32 @@ async function listAllModelS3(s3Client: S3Client, model: string): Promise<string
   };
   /* eslint-enable @typescript-eslint/naming-convention */
 
-  const filesList: string[] = [];
-
   const folders: string[] = [modelWithSlash];
 
   while (folders.length > 0) {
     params.Prefix = folders[0];
-    (await getOneLevelS3(s3Client, params, [])).map((item) => {
-      if (item.endsWith('/')) {
-        folders.push(item);
-      } else {
-        count = count + 1;
-        filesList.push(item);
-      }
-    });
+    await Promise.all(
+      (
+        await getOneLevelS3(s3Client, params, [])
+      ).map(async (item) => {
+        if (item.endsWith('/')) {
+          folders.push(item);
+        } else {
+          count = count + 1;
+          await addToQueue(boss, model, item);
+        }
+      })
+    );
     folders.shift();
   }
 
   if (count == 0) {
     throw new PathNotExists(`Model ${model} doesn't exists in bucket ${config.get<string>('s3.bucket')}!`);
   }
-  return filesList;
+
+  await addSizeToQueue(boss, model, count);
+
+  return count;
 }
 
-export { list1LevelS3, listAllModelS3 };
+export { list1LevelS3, listS3ModelInPG };

@@ -1,3 +1,4 @@
+// import { NodeHttpHandler } from '@aws-sdk/node-http-handler';
 import { Logger } from '@map-colonies/js-logger';
 import { IConfig } from 'config';
 import { inject, injectable } from 'tsyringe';
@@ -5,8 +6,8 @@ import { S3Client } from '@aws-sdk/client-s3';
 import PgBoss from 'pg-boss';
 import axios from 'axios';
 import { SERVICES } from '../../common/constants';
-import { listAllModelS3 } from '../../common/functions/listFromS3';
-import { addSizeToQueue, addToQueue } from '../../common/functions/queue';
+import { listS3ModelInPG } from '../../common/functions/listFromS3';
+import { addSizeToQueue } from '../../common/functions/queue';
 
 @injectable()
 export class ListS3Manager {
@@ -18,7 +19,7 @@ export class ListS3Manager {
       secretAccessKey: this.config.get('s3.awsSecretAccessKey'),
     },
     // requestHandler: new NodeHttpHandler({connectionTimeout: 3000}),
-    // maxAttempts: 3,
+    maxAttempts: 3,
   });
 
   private readonly boss = new PgBoss(this.config.get<string>('postgres'));
@@ -29,63 +30,33 @@ export class ListS3Manager {
 
   public async createListManager(model: string): Promise<string> {
     try {
-      let files: string[] = [];
       this.logger.info({
-        msg: 'Listing the model in the bucket',
+        msg: 'Listing the model in the bucket and put them in pg-boss',
         model: model,
         bucket: this.config.get<string>('s3.bucket'),
+        pgDataBase: this.config.get<string>('postgres'),
       });
 
+      const response = axios.get(this.config.get<string>('getS3') + model);
+      await this.boss.start();
+      let numOfFiles = 0;
+
       if (this.config.get<string>('source') == 'S3') {
-        files = await listAllModelS3(this.s3Client, model);
+        numOfFiles = await listS3ModelInPG(this.s3Client, this.boss, model);
       } else if (this.config.get<string>('source') == 'NFS') {
         // files = listAllModelNFS(path);
         console.log('NFS');
+        numOfFiles = 0;
       } else {
         throw new Error('Bad source!!!');
       }
 
       this.logger.info({
-        msg: 'Successfully listed the files in array. Starting writting ',
-        model: model,
-        bucket: this.config.get<string>('s3.bucket'),
-        numOfFiles: files.length,
-      });
-
-      const response = axios.get(this.config.get<string>('getS3') + model);
-
-      await this.boss.start();
-
-      const numOfFiles = files.length;
-      // const buffer = Number(this.config.get<string>('buffer'));
-      let index = 0;
-
-      // while (files.length - index >= buffer) {
-      //   // Iterates over the files
-      //   await Promise.all(files.slice(index, index + buffer).map(async key => {
-
-      //     await addToQueue(this.boss, model, key, index);
-      //     // After putting the file, increase the counter.
-      //   }));
-      //   index = index + buffer;
-      // }
-
-      await Promise.all(
-        files.map(async (key) => {
-          await addToQueue(this.boss, model, key, index);
-          // After putting the file, increase the counter.
-          index = index + 1;
-        })
-      );
-
-      this.logger.info({
-        msg: 'Successfully listed the files in array',
+        msg: 'Successfully wrote the files in pg-boss ',
         model: model,
         bucket: this.config.get<string>('s3.bucket'),
         numOfFiles: numOfFiles,
       });
-
-      await addSizeToQueue(this.boss, model, numOfFiles);
 
       return (await response).data as string;
     } catch (e) {

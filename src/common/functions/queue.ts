@@ -1,9 +1,9 @@
 import PgBoss from 'pg-boss';
 
-async function addToQueue(boss: PgBoss, model: string, key: string, index: number): Promise<void> {
+async function addToQueue(boss: PgBoss, model: string, key: string): Promise<void> {
   const jobId = await boss.send(model, { key });
 
-  console.log(`created job in queue ${model}: ${jobId != undefined ? jobId : ''} File: ${index}`);
+  console.log(`created job in queue ${model}: ${jobId != undefined ? jobId : ''} Key: ${key}`);
 
   // await boss.work(queue, someAsyncJobHandler);
 }
