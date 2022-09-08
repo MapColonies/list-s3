@@ -89,6 +89,8 @@ export class ListS3Manager {
 
       return (await response).data as string;
     } catch (e) {
+      // eslint-disable-next-line @typescript-eslint/no-magic-numbers
+      await addSizeToQueue(this.boss, model, -1);
       this.logger.error({ msg: 'Failed to write the files from S3', e });
       throw e;
     }
