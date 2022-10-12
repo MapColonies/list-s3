@@ -8,6 +8,7 @@ import axios from 'axios';
 import { SERVICES } from '../../common/constants';
 import { listS3ModelInPG } from '../../common/functions/listFromS3';
 import { addSizeToQueue } from '../../common/functions/queue';
+import { listNFSModelInPG } from '../../common/functions/listFromNFS';
 
 @injectable()
 export class ListS3Manager {
@@ -24,8 +25,11 @@ export class ListS3Manager {
 
   private readonly pgBoss = new PgBoss(this.config.get<string>('pgboss'));
 
-  public constructor(@inject(SERVICES.LOGGER) private readonly logger: Logger, @inject(SERVICES.CONFIG) private readonly config: IConfig) {
-    this.pgBoss.on('error', (error) => console.error(error));
+  public constructor(
+    @inject(SERVICES.LOGGER) private readonly logger: Logger, 
+    @inject(SERVICES.CONFIG) private readonly config: IConfig
+    ) {
+    this.pgBoss.on('error', (error) => this.logger.error(error));
   }
 
   public async createListManager(model: string): Promise<string> {
@@ -46,15 +50,13 @@ export class ListS3Manager {
       if (this.config.get<string>('source') == 'S3') {
         numOfFiles = await listS3ModelInPG(this.s3Client, this.pgBoss, model);
       } else if (this.config.get<string>('source') == 'NFS') {
-        // files = listAllModelNFS(path);
-        console.log('NFS');
-        numOfFiles = 0;
+        numOfFiles = await listNFSModelInPG(this.pgBoss, model);
       } else {
         throw new Error('Bad source!!!');
       }
 
       this.logger.info({
-        msg: 'Successfully wrote the files in pgboss ',
+        msg: 'Successfully wrote the files in pgboss',
         model: model,
         bucket: this.config.get<string>('s3.bucket'),
         pgboss: this.config.get<string>('pgboss'),
@@ -62,11 +64,11 @@ export class ListS3Manager {
       });
 
       return (await response).data as string;
-
     } catch (e) {
       // eslint-disable-next-line @typescript-eslint/no-magic-numbers
       await addSizeToQueue(this.pgBoss, model, -1);
       this.logger.error({ msg: 'Failed to write the files from S3', e });
+
       throw e;
     }
   }

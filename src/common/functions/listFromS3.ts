@@ -5,8 +5,7 @@ import PgBoss from 'pg-boss';
 import { PathNotExists } from '../errors';
 import { addSizeToQueue, addKeyToQueue } from './queue';
 
-async function getOneLevelS3(s3Client: S3Client, params: ListObjectsRequest, keysList: string[]): Promise<string[]> {
-
+async function listOneLevelS3(s3Client: S3Client, params: ListObjectsRequest, keysList: string[]): Promise<string[]> {
   const data = await s3Client.send(new ListObjectsCommand(params));
 
   if (data.$metadata.httpStatusCode != StatusCodes.OK) {
@@ -22,7 +21,7 @@ async function getOneLevelS3(s3Client: S3Client, params: ListObjectsRequest, key
 
   if (data.IsTruncated == true) {
     params.Marker = data.NextMarker;
-    await getOneLevelS3(s3Client, params, keysList);
+    await listOneLevelS3(s3Client, params, keysList);
   }
   return keysList;
 }
@@ -45,7 +44,7 @@ async function listS3ModelInPG(s3Client: S3Client, pgBoss: PgBoss, model: string
     params.Prefix = folders[0];
     await Promise.all(
       (
-        await getOneLevelS3(s3Client, params, [])
+        await listOneLevelS3(s3Client, params, [])
       ).map(async (item) => {
         if (item.endsWith('/')) {
           folders.push(item);
