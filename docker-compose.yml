@@ -9,4 +9,4 @@ services:
       - 'ALLOW_EMPTY_PASSWORD=yes'
       - POSTGRESQL_USERNAME=postgres
       - POSTGRESQL_PASSWORD=postgres
-      - POSTGRESQL_DATABASE=s3-data
+      - POSTGRESQL_DATABASE=s3-key
