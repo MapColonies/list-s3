@@ -6,8 +6,13 @@ async function addKeyToQueue(boss: PgBoss, model: string, key: string): Promise<
   };
 
   const jobId = await boss.send(model, { key }, options);
+  if (jobId != undefined) {
+    await boss.complete(jobId);
+    console.log(`created job in queue ${jobId}, Key: ${key}`);
+  } else {
+    throw new Error("Got null jobId from pg-boss");
+  }
 
-  console.log(`created job in queue ${model}: ${jobId != undefined ? jobId : ''} Key: ${key}`);
 }
 
 async function addSizeToQueue(boss: PgBoss, model: string, size: number): Promise<void> {
